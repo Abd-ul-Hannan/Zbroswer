@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- External storage root -->
+    <external-path
+        name="external_files"
+        path="." />
+    
+    <!-- Downloads folder -->
+    <external-path
+        name="downloads"
+        path="Download/" />
+    
+    <!-- App-specific external files -->
+    <external-files-path
+        name="external_files_path"
+        path="." />
+    
+    <!-- Internal app files -->
+    <files-path
+        name="files"
+        path="." />
+    
+    <!-- Cache directory -->
+    <cache-path
+        name="cache"
+        path="." />
+    
+    <!-- Root path for system access -->
+    <root-path
+        name="root"
+        path="." />
+    
+    <!-- External cache for temporary files -->
+    <external-cache-path
+        name="external_cache"
+        path="." />
+    
+    <!-- Documents directory -->
+    <external-path
+        name="documents"
+        path="Documents/" />
+    
+    <!-- APK files in Downloads -->
+    <external-path
+        name="apk_files"
+        path="Download/" />
+</paths>

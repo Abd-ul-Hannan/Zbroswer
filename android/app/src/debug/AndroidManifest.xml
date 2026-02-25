@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internet access for API calls and Flutter debugging -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Camera and Audio Permissions -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+
+    <!-- Video & Audio Capture -->
+    <uses-permission android:name="android.permission.VIDEO_CAPTURE"/>
+    <uses-permission android:name="android.permission.AUDIO_CAPTURE"/>
+
+    <!-- Wake Lock to prevent screen sleep during operations -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- Foreground Service permission for background tasks (Android 9+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
+    <!-- Modern Scoped Storage Permissions (Android 10+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+</manifest>

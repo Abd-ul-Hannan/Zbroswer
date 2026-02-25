@@ -1,0 +1,14 @@
+# Add these dependencies to your pubspec.yaml file:
+
+dependencies:
+  # Existing dependencies...
+  camera: ^0.10.5+5
+  google_mlkit_barcode_scanning: ^0.8.0
+  share_plus: ^7.2.1
+  
+# Note: Make sure you also have these existing dependencies:
+# get: (for state management)
+# flutter/services.dart (for clipboard functionality - built-in)
+# google_mlkit_text_recognition: (already in your project)
+
+# Don't forget to run: flutter pub get
