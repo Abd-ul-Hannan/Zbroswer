@@ -51,7 +51,7 @@
     <application
         android:label="zbrowser"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/zbroswer"
         android:requestLegacyExternalStorage="true"
         android:preserveLegacyExternalStorage="true"
         android:enableOnBackInvokedCallback="true"

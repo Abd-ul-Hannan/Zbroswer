@@ -323,13 +323,16 @@ class LongPressAlertDialog extends StatelessWidget {
             
         if (urlString == null || urlString.isEmpty) {
           Get.delete<LongPressController>(tag: controllerTag);
-          Get.back();
+          if (Get.isDialogOpen == true) Get.back();
           return;
         }
 
         // Close dialog first
         Get.delete<LongPressController>(tag: controllerTag);
-        Get.back();
+        if (Get.isDialogOpen == true) Get.back();
+        
+        // Wait for dialog to close
+        await Future.delayed(const Duration(milliseconds: 300));
 
         try {
           // Get download controller
@@ -428,13 +431,16 @@ class LongPressAlertDialog extends StatelessWidget {
         String? url = hitTestResult.extra;
         if (url == null || url.isEmpty) {
           Get.delete<LongPressController>(tag: controllerTag);
-          Get.back();
+          if (Get.isDialogOpen == true) Get.back();
           return;
         }
 
         // Close dialog first
         Get.delete<LongPressController>(tag: controllerTag);
-        Get.back();
+        if (Get.isDialogOpen == true) Get.back();
+        
+        // Wait for dialog to close
+        await Future.delayed(const Duration(milliseconds: 300));
 
         try {
           // Get download controller
@@ -481,12 +487,12 @@ class LongPressAlertDialog extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.share, color: Colors.blue),
       title: const Text("Share image"),
-      onTap: () {
+      onTap: () async {
         if (hitTestResult.extra != null) {
           Share.share(hitTestResult.extra!);
         }
         Get.delete<LongPressController>(tag: controllerTag);
-        Get.back();
+        if (Get.isDialogOpen == true) Get.back();
       },
     );
   }
@@ -496,7 +502,7 @@ class LongPressAlertDialog extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.open_in_new, color: Colors.blue),
       title: const Text("Open in new tab"),
-      onTap: () {
+      onTap: () async {
         var url = requestFocusNodeHrefResult?.url ?? 
             (hitTestResult.extra != null ? WebUri(hitTestResult.extra!) : null);
         
@@ -509,7 +515,7 @@ class LongPressAlertDialog extends StatelessWidget {
           );
         }
         Get.delete<LongPressController>(tag: controllerTag);
-        Get.back();
+        if (Get.isDialogOpen == true) Get.back();
       },
     );
   }
@@ -518,7 +524,7 @@ class LongPressAlertDialog extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.lock_outline, color: Colors.blue),
       title: const Text("Open in incognito tab"),
-      onTap: () {
+      onTap: () async {
         var url = requestFocusNodeHrefResult?.url ?? 
             (hitTestResult.extra != null ? WebUri(hitTestResult.extra!) : null);
         
@@ -534,7 +540,7 @@ class LongPressAlertDialog extends StatelessWidget {
           );
         }
         Get.delete<LongPressController>(tag: controllerTag);
-        Get.back();
+        if (Get.isDialogOpen == true) Get.back();
       },
     );
   }
@@ -543,7 +549,7 @@ class LongPressAlertDialog extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.share, color: Colors.blue),
       title: const Text("Share link"),
-      onTap: () {
+      onTap: () async {
         final shareUrl = requestFocusNodeHrefResult?.url?.toString() ??
             hitTestResult.extra ??
             '';
@@ -551,7 +557,7 @@ class LongPressAlertDialog extends StatelessWidget {
           Share.share(shareUrl);
         }
         Get.delete<LongPressController>(tag: controllerTag);
-        Get.back();
+        if (Get.isDialogOpen == true) Get.back();
       },
     );
   }

@@ -113,7 +113,8 @@ class DownloadManagerScreen extends StatelessWidget {
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           onSelected: (value) async {
-            await Future.delayed(const Duration(milliseconds: 50));
+            // Wait for popup to close
+            await Future.delayed(const Duration(milliseconds: 200));
             
             if (!Get.context!.mounted) return;
             
@@ -798,7 +799,8 @@ class DownloadManagerScreen extends StatelessWidget {
         return PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           onSelected: (value) async {
-            await Future.delayed(const Duration(milliseconds: 50));
+            // Wait for popup to close
+            await Future.delayed(const Duration(milliseconds: 200));
             
             if (!Get.context!.mounted) return;
             
@@ -1047,7 +1049,6 @@ class DownloadManagerScreen extends StatelessWidget {
                   }
                   
                   await Future.delayed(const Duration(milliseconds: 100));
-                  
                   controller.enqueueDownloadWithQualitySelection(url, fileName);
                 }
               },
@@ -1081,67 +1082,72 @@ class DownloadManagerScreen extends StatelessWidget {
     if (Get.isDialogOpen == true) return;
     
     Get.dialog(
-      AlertDialog(
-        title: Row(
-          children: [
-            controller.getFileTypeIcon(item.fileName),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                item.fileName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+      WillPopScope(
+        onWillPop: () async => true,
+        child: AlertDialog(
+          title: Row(
+            children: [
+              controller.getFileTypeIcon(item.fileName),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.fileName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.open_in_new, color: Colors.blue),
-              title: const Text('Open'),
-              onTap: () {
-                if (Get.isDialogOpen == true) Get.back();
-                controller.openFile(item.taskId);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share, color: Colors.green),
-              title: const Text('Share'),
-              onTap: () {
-                if (Get.isDialogOpen == true) Get.back();
-                controller.shareFile(item.taskId);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit, color: Colors.orange),
-              title: const Text('Rename'),
-              onTap: () async {
-                if (Get.isDialogOpen == true) Get.back();
-                await Future.delayed(const Duration(milliseconds: 100));
-                _showRenameDialog(item, controller);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, color: Colors.purple),
-              title: const Text('File Info'),
-              onTap: () async {
-                if (Get.isDialogOpen == true) Get.back();
-                await Future.delayed(const Duration(milliseconds: 100));
-                _showFileInfoDialog(item, controller);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Delete', style: TextStyle(color: Colors.red)),
-              onTap: () async {
-                if (Get.isDialogOpen == true) Get.back();
-                await Future.delayed(const Duration(milliseconds: 100));
-                _showDeleteDialog(item, controller);
-              },
-            ),
-          ],
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.open_in_new, color: Colors.blue),
+                title: const Text('Open'),
+                onTap: () async {
+                  if (Get.isDialogOpen == true) Get.back();
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  controller.openFile(item.taskId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share, color: Colors.green),
+                title: const Text('Share'),
+                onTap: () async {
+                  if (Get.isDialogOpen == true) Get.back();
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  controller.shareFile(item.taskId);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit, color: Colors.orange),
+                title: const Text('Rename'),
+                onTap: () async {
+                  if (Get.isDialogOpen == true) Get.back();
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  _showRenameDialog(item, controller);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.purple),
+                title: const Text('File Info'),
+                onTap: () async {
+                  if (Get.isDialogOpen == true) Get.back();
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  _showFileInfoDialog(item, controller);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  if (Get.isDialogOpen == true) Get.back();
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  _showDeleteDialog(item, controller);
+                },
+              ),
+            ],
+          ),
         ),
       ),
       barrierDismissible: true,
@@ -1180,13 +1186,14 @@ class DownloadManagerScreen extends StatelessWidget {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.trim().isNotEmpty) {
-                  controller.renameFile(item.taskId, nameController.text.trim());
                   if (Get.isDialogOpen == true) {
                     nameController.dispose();
                     Get.back();
                   }
+                  await Future.delayed(const Duration(milliseconds: 100));
+                  controller.renameFile(item.taskId, nameController.text.trim());
                 }
               },
               child: const Text('Rename'),
@@ -1420,33 +1427,33 @@ class DownloadManagerScreen extends StatelessWidget {
     if (Get.isDialogOpen == true) return;
     
     Get.dialog(
-      AlertDialog(
-        title: const Text('Delete Download'),
-        content: Text(
-          'Are you sure you want to delete "${item.fileName}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (Get.isDialogOpen == true) Get.back();
-            },
-            child: const Text('Cancel'),
+      WillPopScope(
+        onWillPop: () async => true,
+        child: AlertDialog(
+          title: const Text('Delete Download'),
+          content: Text(
+            'Are you sure you want to delete "${item.fileName}"?',
           ),
-          ElevatedButton(
-            onPressed: () {
-              if (Get.isDialogOpen == true) {
-                Get.back();
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  controller.deleteDownload(item.taskId);
-                });
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (Get.isDialogOpen == true) Get.back();
+              },
+              child: const Text('Cancel'),
             ),
-            child: const Text('Delete'),
-          ),
-        ],
+            ElevatedButton(
+              onPressed: () async {
+                if (Get.isDialogOpen == true) Get.back();
+                await Future.delayed(const Duration(milliseconds: 200));
+                controller.deleteDownload(item.taskId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
       ),
       barrierDismissible: true,
     );
@@ -1456,33 +1463,33 @@ class DownloadManagerScreen extends StatelessWidget {
     if (Get.isDialogOpen == true) return;
     
     Get.dialog(
-      AlertDialog(
-        title: const Text('Delete Selected'),
-        content: Text(
-          'Delete ${controller.selectedItems.length} selected download(s)?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (Get.isDialogOpen == true) Get.back();
-            },
-            child: const Text('Cancel'),
+      WillPopScope(
+        onWillPop: () async => true,
+        child: AlertDialog(
+          title: const Text('Delete Selected'),
+          content: Text(
+            'Delete ${controller.selectedItems.length} selected download(s)?',
           ),
-          ElevatedButton(
-            onPressed: () {
-              if (Get.isDialogOpen == true) {
-                Get.back();
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  controller.deleteSelectedItems();
-                });
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (Get.isDialogOpen == true) Get.back();
+              },
+              child: const Text('Cancel'),
             ),
-            child: const Text('Delete'),
-          ),
-        ],
+            ElevatedButton(
+              onPressed: () async {
+                if (Get.isDialogOpen == true) Get.back();
+                await Future.delayed(const Duration(milliseconds: 200));
+                controller.deleteSelectedItems();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
       ),
       barrierDismissible: true,
     );
@@ -1492,33 +1499,33 @@ class DownloadManagerScreen extends StatelessWidget {
     if (Get.isDialogOpen == true) return;
     
     Get.dialog(
-      AlertDialog(
-        title: const Text('Delete All Downloads'),
-        content: const Text(
-          'Are you sure you want to delete ALL downloads? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (Get.isDialogOpen == true) Get.back();
-            },
-            child: const Text('Cancel'),
+      WillPopScope(
+        onWillPop: () async => true,
+        child: AlertDialog(
+          title: const Text('Delete All Downloads'),
+          content: const Text(
+            'Are you sure you want to delete ALL downloads? This action cannot be undone.',
           ),
-          ElevatedButton(
-            onPressed: () {
-              if (Get.isDialogOpen == true) {
-                Get.back();
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  controller.deleteAllDownloads();
-                });
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (Get.isDialogOpen == true) Get.back();
+              },
+              child: const Text('Cancel'),
             ),
-            child: const Text('Delete All'),
-          ),
-        ],
+            ElevatedButton(
+              onPressed: () async {
+                if (Get.isDialogOpen == true) Get.back();
+                await Future.delayed(const Duration(milliseconds: 200));
+                controller.deleteAllDownloads();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Delete All'),
+            ),
+          ],
+        ),
       ),
       barrierDismissible: true,
     );

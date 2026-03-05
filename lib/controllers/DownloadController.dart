@@ -883,8 +883,17 @@ class DownloadController extends GetxController {
       debugPrint('Download error: $e');
       activeDownloads.remove(item.taskId);
 
+      if (_manuallyPausedItems.contains(item.taskId)) {
+        return;
+      }
+
+      final currentItem = downloadItems.firstWhereOrNull((i) => i.taskId == item.taskId);
+      if (currentItem?.status == DownloadTaskStatus.paused ||
+          currentItem?.status == DownloadTaskStatus.canceled) {
+        return;
+      }
+
       if (retryCount < settings.value.autoRetryCount) {
-        debugPrint('Retrying download (${retryCount + 1}/${settings.value.autoRetryCount})');
         await Future.delayed(const Duration(seconds: 2));
         await _startDownload(item, retryCount: retryCount + 1);
       } else {
@@ -998,6 +1007,17 @@ class DownloadController extends GetxController {
       debugPrint('Multi-threaded download completed: ${item.fileName}');
     } catch (e) {
       debugPrint('Error in multi-threaded download: $e');
+
+      if (_manuallyPausedItems.contains(item.taskId)) {
+        return;
+      }
+
+      final currentItem = downloadItems.firstWhereOrNull((i) => i.taskId == item.taskId);
+      if (currentItem?.status == DownloadTaskStatus.paused ||
+          currentItem?.status == DownloadTaskStatus.canceled) {
+        return;
+      }
+
       updateDownloadItem(item.taskId, status: DownloadTaskStatus.failed);
       activeDownloads.remove(item.taskId);
       
@@ -1096,46 +1116,26 @@ class DownloadController extends GetxController {
 
   // ==================== PAUSE/RESUME/CANCEL (COMPLETELY FIXED) ====================
   Future<void> pauseDownload(String taskId) async {
-    // CRITICAL FIX: Prevent duplicate pause operations
     if (_pauseInProgress.contains(taskId)) {
-      debugPrint('⚠️ Pause already in progress for: $taskId');
       return;
     }
     
     final item = downloadItems.firstWhereOrNull((i) => i.taskId == taskId);
-    if (item == null) {
-      debugPrint('⚠️ Cannot pause: item not found');
-      return;
-    }
-    
-    if (item.status != DownloadTaskStatus.running) {
-      debugPrint('⚠️ Cannot pause: item not running (status: ${item.status})');
+    if (item == null || item.status != DownloadTaskStatus.running) {
       return;
     }
 
-    // Lock this operation
     _pauseInProgress.add(taskId);
-    
-    // CRITICAL: Mark as manually paused FIRST (prevents queue from re-adding)
     _manuallyPausedItems.add(taskId);
     
     try {
-      debugPrint('🔴 Pausing download: ${item.fileName}');
-
-      // 1. Remove from queue IMMEDIATELY (prevents auto-restart)
-      downloadQueue.remove(taskId);
-
-      // 2. Close HTTP client
       final client = activeDownloads[taskId];
-      if (client != null) {
-        client.close();
-      }
+      client?.close();
       
-      // 3. Remove from active downloads
       activeDownloads.remove(taskId);
       _activeSpeedTrackers.remove(taskId);
+      downloadQueue.remove(taskId);
 
-      // 4. Update status to paused
       final index = downloadItems.indexWhere((i) => i.taskId == taskId);
       if (index != -1) {
         downloadItems[index] = downloadItems[index].copyWith(
@@ -1144,31 +1144,21 @@ class DownloadController extends GetxController {
         downloadItems.refresh();
       }
       
-      // 5. Save state immediately
       await _saveDownloads();
 
-      debugPrint('✅ Download paused successfully: ${item.fileName}');
-
-      // Show notification
       if (Get.context != null && Get.context!.mounted) {
         Get.snackbar(
-          'Download Paused',
+          'Paused',
           item.fileName,
           snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 1),
           backgroundColor: Colors.orange,
           colorText: Colors.white,
         );
       }
-    } catch (e) {
-      debugPrint('❌ Error pausing download: $e');
-      // If error, remove from manually paused
-      _manuallyPausedItems.remove(taskId);
     } finally {
-      // CRITICAL FIX: Delay lock removal to prevent immediate queue processing
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(milliseconds: 100));
       _pauseInProgress.remove(taskId);
-      debugPrint('🔓 Pause lock removed for: $taskId');
     }
   }
 
@@ -1346,7 +1336,8 @@ class DownloadController extends GetxController {
 
       debugPrint('✅ Download deleted successfully');
 
-      // CRITICAL FIX: Use safe delayed snackbar
+      // CRITICAL FIX: Safe snackbar after delay
+      await Future.delayed(const Duration(milliseconds: 300));
       _showSafeSnackbar(
         'Deleted',
         item.fileName,
@@ -1355,6 +1346,7 @@ class DownloadController extends GetxController {
     } catch (e) {
       debugPrint('❌ Error in deleteDownload: $e');
     } finally {
+      await Future.delayed(const Duration(milliseconds: 100));
       _deleteInProgress.remove(taskId);
     }
   }
@@ -1375,6 +1367,7 @@ class DownloadController extends GetxController {
       final item = downloadItems.firstWhereOrNull((i) => i.taskId == taskId);
       if (item == null) {
         debugPrint('❌ Rename: Item not found');
+        await Future.delayed(const Duration(milliseconds: 300));
         _showSafeSnackbar(
           'Error',
           'Download not found',
@@ -1386,6 +1379,7 @@ class DownloadController extends GetxController {
       // Validate new name
       if (newName.trim().isEmpty) {
         debugPrint('❌ Rename: Empty name');
+        await Future.delayed(const Duration(milliseconds: 300));
         _showSafeSnackbar(
           'Invalid Name',
           'Please enter a valid file name',
@@ -1398,6 +1392,7 @@ class DownloadController extends GetxController {
       final sanitizedName = _sanitizeFileName(newName.trim());
       if (sanitizedName.isEmpty) {
         debugPrint('❌ Rename: Name became empty after sanitization');
+        await Future.delayed(const Duration(milliseconds: 300));
         _showSafeSnackbar(
           'Invalid Name',
           'File name contains invalid characters',
@@ -1409,6 +1404,7 @@ class DownloadController extends GetxController {
       // Check if same name
       if (sanitizedName == item.fileName) {
         debugPrint('⚠️ Rename: Same name, skipping');
+        await Future.delayed(const Duration(milliseconds: 300));
         _showSafeSnackbar(
           'No Change',
           'File already has this name',
@@ -1422,6 +1418,7 @@ class DownloadController extends GetxController {
       final newFile = File(newFilePath);
       if (await newFile.exists()) {
         debugPrint('❌ Rename: File already exists');
+        await Future.delayed(const Duration(milliseconds: 300));
         _showSafeSnackbar(
           'Name Exists',
           'A file with this name already exists',
@@ -1436,6 +1433,7 @@ class DownloadController extends GetxController {
       
       if (!await oldFile.exists()) {
         debugPrint('❌ Rename: Original file not found');
+        await Future.delayed(const Duration(milliseconds: 300));
         _showSafeSnackbar(
           'File Not Found',
           'The original file does not exist',
@@ -1450,6 +1448,7 @@ class DownloadController extends GetxController {
         debugPrint('✅ File renamed successfully');
       } catch (e) {
         debugPrint('❌ Rename operation failed: $e');
+        await Future.delayed(const Duration(milliseconds: 300));
         _showSafeSnackbar(
           'Rename Failed',
           'Could not rename file: Permission denied',
@@ -1470,6 +1469,7 @@ class DownloadController extends GetxController {
       await _saveDownloads();
       
       // Show success
+      await Future.delayed(const Duration(milliseconds: 300));
       _showSafeSnackbar(
         'Renamed',
         'File renamed to: $sanitizedName',
@@ -1483,12 +1483,14 @@ class DownloadController extends GetxController {
       debugPrint('Stack trace: $stackTrace');
       
       // Safe error message
+      await Future.delayed(const Duration(milliseconds: 300));
       _showSafeSnackbar(
         'Error',
         'An unexpected error occurred',
         backgroundColor: Colors.red,
       );
     } finally {
+      await Future.delayed(const Duration(milliseconds: 100));
       _renameInProgress.remove(taskId);
     }
   }
@@ -1537,40 +1539,43 @@ class DownloadController extends GetxController {
     }
     
     Get.dialog(
-      AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.high_quality, color: Colors.blue),
-            SizedBox(width: 8),
-            Text('Select Quality'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: qualities.map((quality) {
-              return ListTile(
-                leading: const Icon(Icons.video_library),
-                title: Text(quality.quality),
-                subtitle: quality.fileSize != null 
-                    ? Text(formatFileSize(quality.fileSize!.toDouble()))
-                    : null,
-                onTap: () async {
-                  if (Get.isDialogOpen == true) Get.back();
-                  
-                  await Future.delayed(const Duration(milliseconds: 300));
-                  
-                  final shouldDownload = await _showDownloadPermissionDialog(quality.url, fileName);
-                  if (shouldDownload) {
-                    if (quality.format == 'm3u8') {
-                      downloadM3U8(quality.url, fileName, selectedQuality: quality.quality);
-                    } else {
-                      enqueueDownload(quality.url, fileName, showWarning: false);
+      WillPopScope(
+        onWillPop: () async => true,
+        child: AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.high_quality, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('Select Quality'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: qualities.map((quality) {
+                return ListTile(
+                  leading: const Icon(Icons.video_library),
+                  title: Text(quality.quality),
+                  subtitle: quality.fileSize != null 
+                      ? Text(formatFileSize(quality.fileSize!.toDouble()))
+                      : null,
+                  onTap: () async {
+                    if (Get.isDialogOpen == true) Get.back();
+                    
+                    await Future.delayed(const Duration(milliseconds: 200));
+                    
+                    final shouldDownload = await _showDownloadPermissionDialog(quality.url, fileName);
+                    if (shouldDownload) {
+                      if (quality.format == 'm3u8') {
+                        downloadM3U8(quality.url, fileName, selectedQuality: quality.quality);
+                      } else {
+                        enqueueDownload(quality.url, fileName, showWarning: false);
+                      }
                     }
-                  }
-                },
-              );
-            }).toList(),
+                  },
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),
@@ -1724,21 +1729,22 @@ class DownloadController extends GetxController {
     Duration duration = const Duration(seconds: 2),
   }) {
     try {
-      if (Get.context != null && Get.context!.mounted) {
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (Get.context != null && Get.context!.mounted) {
-            Get.snackbar(
-              title,
-              message,
-              snackPosition: SnackPosition.BOTTOM,
-              duration: duration,
-              backgroundColor: backgroundColor,
-              colorText: Colors.white,
-              icon: icon != null ? Icon(icon, color: Colors.white) : null,
-            );
-          }
-        });
-      }
+      // Wait for any dialog to close first
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (Get.context != null && Get.context!.mounted && Get.isDialogOpen != true) {
+          Get.snackbar(
+            title,
+            message,
+            snackPosition: SnackPosition.BOTTOM,
+            duration: duration,
+            backgroundColor: backgroundColor,
+            colorText: Colors.white,
+            icon: icon != null ? Icon(icon, color: Colors.white) : null,
+            margin: const EdgeInsets.all(10),
+            borderRadius: 8,
+          );
+        }
+      });
     } catch (e) {
       debugPrint('Error showing snackbar: $e');
     }
@@ -1756,25 +1762,28 @@ class DownloadController extends GetxController {
       }
       
       Get.dialog(
-        AlertDialog(
-          title: Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, color: iconColor),
-                const SizedBox(width: 8),
+        WillPopScope(
+          onWillPop: () async => true,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: iconColor),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(child: Text(title)),
               ],
-              Expanded(child: Text(title)),
+            ),
+            content: Text(content),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  if (Get.isDialogOpen == true) Get.back();
+                },
+                child: const Text('OK'),
+              ),
             ],
           ),
-          content: Text(content),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (Get.isDialogOpen == true) Get.back();
-              },
-              child: const Text('OK'),
-            ),
-          ],
         ),
         barrierDismissible: true,
       );
@@ -2274,64 +2283,51 @@ class DownloadController extends GetxController {
 
   void _startQueueTimer() {
     _queueTimer?.cancel();
-    _queueTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    _queueTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _processDownloadQueue();
     });
   }
 
   Future<void> _processDownloadQueue() async {
-    // CRITICAL: Prevent concurrent queue processing
-    if (_isProcessingQueue) {
-      debugPrint('⚠️ Queue processing already in progress, skipping...');
-      return;
-    }
+    if (_isProcessingQueue) return;
     
     _isProcessingQueue = true;
     
     try {
-      if (settings.value.wifiOnly && !isWifiConnected.value) {
-        debugPrint('📡 WiFi only mode - skipping queue processing');
-        return;
-      }
+      if (settings.value.wifiOnly && !isWifiConnected.value) return;
       
-      if (activeDownloads.length < maxConcurrentDownloads && downloadQueue.isNotEmpty) {
-        final availableSlots = maxConcurrentDownloads - activeDownloads.length;
-        final tasksToStart = downloadQueue.take(availableSlots).toList();
+      if (activeDownloads.length >= maxConcurrentDownloads) return;
+      if (downloadQueue.isEmpty) return;
+      
+      final availableSlots = maxConcurrentDownloads - activeDownloads.length;
+      final tasksToStart = downloadQueue.take(availableSlots).toList();
 
-        for (var taskId in tasksToStart) {
-          // CRITICAL: Skip if manually paused
-          if (_manuallyPausedItems.contains(taskId)) {
-            debugPrint('⏸️ Skipping paused item: $taskId');
-            downloadQueue.remove(taskId);
-            continue;
-          }
+      for (var taskId in tasksToStart) {
+        final item = downloadItems.firstWhereOrNull((i) => i.taskId == taskId);
+        
+        if (item == null) {
+          downloadQueue.remove(taskId);
+          continue;
+        }
+        
+        if (_manuallyPausedItems.contains(taskId) || 
+            _pauseInProgress.contains(taskId) ||
+            _completedDownloads.contains(taskId) ||
+            item.status == DownloadTaskStatus.paused ||
+            item.status == DownloadTaskStatus.complete) {
+          downloadQueue.remove(taskId);
+          continue;
+        }
+        
+        if (item.status == DownloadTaskStatus.enqueued) {
+          downloadQueue.remove(taskId);
           
-          // CRITICAL: Skip if pause in progress
-          if (_pauseInProgress.contains(taskId)) {
-            debugPrint('⏸️ Skipping item with pause in progress: $taskId');
-            continue;
-          }
-          
-          // CRITICAL FIX: Skip if already completed
-          if (_completedDownloads.contains(taskId)) {
-            debugPrint('✅ Skipping completed item: $taskId');
-            downloadQueue.remove(taskId);
-            continue;
-          }
-          
-          final item = downloadItems.firstWhereOrNull((item) => item.taskId == taskId);
-          if (item != null && item.status == DownloadTaskStatus.enqueued) {
-            downloadQueue.remove(taskId);
-            
-            debugPrint('▶️ Processing queue item: ${item.fileName}');
-            
-            if (item.isM3U8) {
-              await downloadM3U8(item.url, item.fileName);
-            } else if (settings.value.enableMultiThreading && item.fileSize > 1024 * 1024) {
-              await startMultiThreadedDownload(item);
-            } else {
-              await _startDownload(item);
-            }
+          if (item.isM3U8) {
+            await downloadM3U8(item.url, item.fileName);
+          } else if (settings.value.enableMultiThreading && item.fileSize > 1024 * 1024) {
+            await startMultiThreadedDownload(item);
+          } else {
+            await _startDownload(item);
           }
         }
       }
