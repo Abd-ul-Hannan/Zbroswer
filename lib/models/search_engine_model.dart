@@ -81,12 +81,13 @@ const EcosiaSearchEngine = SearchEngineModel(
   assetIcon: "assets/images/ecosia_logo.png",
 );
 
+
 // ignore: constant_identifier_names
 const PerplexitySearchEngine = SearchEngineModel(
   name: "Perplexity",
   url: "https://www.perplexity.ai/",
   searchUrl: "https://www.perplexity.ai/search?q=",
-  assetIcon: "assets/images/google_logo.png",
+  assetIcon: "assets/images/perplexity_logo.png",
 );
 
 // ignore: constant_identifier_names
@@ -94,7 +95,7 @@ const QuiciteSearchEngine = SearchEngineModel(
   name: "Quicite",
   url: "https://quicite.com/",
   searchUrl: "https://quicite.com/search?q=",
-  assetIcon: "assets/images/google_logo.png",
+  assetIcon: "assets/images/QuiCite_logo.png",
 );
 
 // ignore: constant_identifier_names
@@ -102,7 +103,7 @@ const YandexSearchEngine = SearchEngineModel(
   name: "Yandex",
   url: "https://yandex.com/",
   searchUrl: "https://yandex.com/search/?text=",
-  assetIcon: "assets/images/google_logo.png",
+  assetIcon: "assets/images/yandex_logo.png",
 );
 
 // ignore: constant_identifier_names

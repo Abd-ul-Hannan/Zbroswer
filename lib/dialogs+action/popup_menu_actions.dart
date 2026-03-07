@@ -28,7 +28,6 @@ class PopupMenuActions {
   // ignore: constant_identifier_names
   static const String DEVELOPERS = "Developers";
   // ignore: constant_identifier_names
-  static const String INAPPWEBVIEW_PROJECT = "InAppWebView Project";
   // ignore: constant_identifier_names
   static const String SNAKE_GAME = "Snake Game";
 
@@ -46,7 +45,6 @@ class PopupMenuActions {
         DEVELOPERS,
         DESKTOP_MODE,
         SNAKE_GAME,
-        INAPPWEBVIEW_PROJECT,
       ];
     }
     return [
@@ -63,7 +61,6 @@ class PopupMenuActions {
       SETTINGS,
       DEVELOPERS,
       SNAKE_GAME,
-      INAPPWEBVIEW_PROJECT,
     ];
   }
 }

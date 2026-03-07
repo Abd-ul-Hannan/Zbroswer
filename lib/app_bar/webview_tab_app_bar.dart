@@ -678,20 +678,7 @@ class WebViewTabAppBarController extends GetxController {
       case PopupMenuActions.FIND_ON_PAGE:
         return _menuItem(choice, Icons.search);
         
-      case PopupMenuActions.INAPPWEBVIEW_PROJECT:
-        return CustomPopupMenuItem<String>(
-          value: choice,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween, 
-            children: [
-              Text(choice),
-              const Padding(
-                padding: EdgeInsets.only(right: 6), 
-                child: AnimatedFlutterBrowserLogo(size: 12.5)
-              ),
-            ]
-          ),
-        );
+      
         
       case PopupMenuActions.SNAKE_GAME:
         return _menuItem(choice, Icons.games, color: Colors.orange);
@@ -765,11 +752,7 @@ class WebViewTabAppBarController extends GetxController {
           goToSettingsPage
         );
         break;
-      case PopupMenuActions.INAPPWEBVIEW_PROJECT:
-        Future.delayed(
-          const Duration(milliseconds: 300), 
-          openProjectPopup
-        );
+   
         break;
       case PopupMenuActions.SNAKE_GAME:
         Future.delayed(
