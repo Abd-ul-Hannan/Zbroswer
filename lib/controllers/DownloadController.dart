@@ -368,15 +368,7 @@ class DownloadController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeNotifications();
-      _initializeDownloadManager();
-      _startSpeedTimer();
-      _startQueueTimer();
-      _startPersistenceTimer();
-      _initializeConnectivityMonitoring();
-      _initializeBatteryMonitoring();
-    });
+    Future.microtask(_initializeDownloadManager);
   }
 
   @override
@@ -411,14 +403,19 @@ class DownloadController extends GetxController {
 
   Future<void> _initializeDownloadManager() async {
     try {
-      await loadSettings();
-      await _initializeDownloadPath();
-      await _requestStoragePermission();
+      await Future.wait([loadSettings(), _initializeDownloadPath()]);
+      Future.microtask(() {
+        _requestStoragePermission();
+        _initializeNotifications();
+        _startSpeedTimer();
+        _startPersistenceTimer();
+        _initializeConnectivityMonitoring();
+        _initializeBatteryMonitoring();
+        _startQueueTimer();
+      });
       await _loadPersistedDownloads();
-      await _loadStorageInfo();
-    } catch (e) {
-      debugPrint('Error initializing download manager: $e');
-    } finally {
+      Future.microtask(_loadStorageInfo);
+    } catch (e) {} finally {
       isLoading.value = false;
     }
   }
@@ -1457,12 +1454,18 @@ class DownloadController extends GetxController {
         return;
       }
       
-      // Update in download list
+      // CRITICAL FIX: Detect new file type after rename
+      final newFileType = detectFileType(sanitizedName, item.url);
+      
+      // Update in download list with new file type
       final index = downloadItems.indexWhere((i) => i.taskId == taskId);
       if (index != -1) {
-        downloadItems[index] = item.copyWith(fileName: sanitizedName);
+        downloadItems[index] = item.copyWith(
+          fileName: sanitizedName,
+          fileType: newFileType,
+        );
         downloadItems.refresh();
-        debugPrint('✅ Download item updated');
+        debugPrint('✅ Download item updated with new type: $newFileType');
       }
       
       // Save state
@@ -1542,6 +1545,7 @@ class DownloadController extends GetxController {
       WillPopScope(
         onWillPop: () async => true,
         child: AlertDialog(
+          contentPadding: const EdgeInsets.symmetric(vertical: 20),
           title: const Row(
             children: [
               Icon(Icons.high_quality, color: Colors.blue),
@@ -1549,32 +1553,35 @@ class DownloadController extends GetxController {
               Text('Select Quality'),
             ],
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: qualities.map((quality) {
-                return ListTile(
-                  leading: const Icon(Icons.video_library),
-                  title: Text(quality.quality),
-                  subtitle: quality.fileSize != null 
-                      ? Text(formatFileSize(quality.fileSize!.toDouble()))
-                      : null,
-                  onTap: () async {
-                    if (Get.isDialogOpen == true) Get.back();
-                    
-                    await Future.delayed(const Duration(milliseconds: 200));
-                    
-                    final shouldDownload = await _showDownloadPermissionDialog(quality.url, fileName);
-                    if (shouldDownload) {
-                      if (quality.format == 'm3u8') {
-                        downloadM3U8(quality.url, fileName, selectedQuality: quality.quality);
-                      } else {
-                        enqueueDownload(quality.url, fileName, showWarning: false);
+          content: SizedBox(
+            width: Get.width * 0.8,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: qualities.map((quality) {
+                  return ListTile(
+                    leading: const Icon(Icons.video_library),
+                    title: Text(quality.quality),
+                    subtitle: quality.fileSize != null 
+                        ? Text(formatFileSize(quality.fileSize!.toDouble()))
+                        : null,
+                    onTap: () async {
+                      if (Get.isDialogOpen == true) Get.back();
+                      
+                      await Future.delayed(const Duration(milliseconds: 200));
+                      
+                      final shouldDownload = await _showDownloadPermissionDialog(quality.url, fileName);
+                      if (shouldDownload) {
+                        if (quality.format == 'm3u8') {
+                          downloadM3U8(quality.url, fileName, selectedQuality: quality.quality);
+                        } else {
+                          enqueueDownload(quality.url, fileName, showWarning: false);
+                        }
                       }
-                    }
-                  },
-                );
-              }).toList(),
+                    },
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ),
@@ -1715,8 +1722,7 @@ class DownloadController extends GetxController {
   void _updateNotificationThrottled(String taskId, int progress, int downloaded, int total) {
     final now = DateTime.now();
     final lastUpdate = _notificationUpdateTimers[taskId];
-    
-    if (lastUpdate == null || now.difference(lastUpdate).inSeconds >= 3) {
+    if (lastUpdate == null || now.difference(lastUpdate).inSeconds >= 10) {
       _notificationUpdateTimers[taskId] = now;
       _showProgressNotification(taskId, progress, downloaded, total);
     }
@@ -2086,7 +2092,10 @@ class DownloadController extends GetxController {
         fileSize: fileSize,
         downloadedBytes: downloadedBytes,
       );
-      downloadItems.refresh();
+      // EXTREME: Update only on status or 20%
+      if (status != null || (progress != null && progress % 20 == 0)) {
+        downloadItems.refresh();
+      }
     }
   }
 
@@ -2235,20 +2244,21 @@ class DownloadController extends GetxController {
 
   void _startPersistenceTimer() {
     _persistenceTimer?.cancel();
-    _persistenceTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _saveDownloads();
-    });
+    _persistenceTimer = Timer.periodic(const Duration(seconds: 60), (timer) => _saveDownloads());
   }
 
+  DateTime? _lastSaveTime;
+  
   Future<void> _saveDownloads() async {
+    final now = DateTime.now();
+    if (_lastSaveTime != null && now.difference(_lastSaveTime!).inSeconds < 10) return;
+    _lastSaveTime = now;
+    
     try {
       final prefs = await SharedPreferences.getInstance();
       final data = downloadItems.map((item) => item.toJson()).toList();
       await prefs.setString('active_downloads', jsonEncode(data));
-      debugPrint('✅ Saved ${downloadItems.length} downloads to storage');
-    } catch (e) {
-      debugPrint('❌ Error saving downloads: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> _loadPersistedDownloads() async {
@@ -2283,9 +2293,7 @@ class DownloadController extends GetxController {
 
   void _startQueueTimer() {
     _queueTimer?.cancel();
-    _queueTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      _processDownloadQueue();
-    });
+    _queueTimer = Timer.periodic(const Duration(seconds: 5), (timer) => _processDownloadQueue());
   }
 
   Future<void> _processDownloadQueue() async {
@@ -2338,9 +2346,7 @@ class DownloadController extends GetxController {
 
   void _startSpeedTimer() {
     _speedTimer?.cancel();
-    _speedTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _updateDownloadSpeed();
-    });
+    _speedTimer = Timer.periodic(const Duration(seconds: 3), (timer) => _updateDownloadSpeed());
   }
 
   void _updateDownloadSpeed() {
@@ -2403,6 +2409,7 @@ class DownloadController extends GetxController {
             return true;
           },
           child: AlertDialog(
+            contentPadding: const EdgeInsets.all(20),
             title: const Row(
               children: [
                 Icon(Icons.download, color: Colors.blue),
@@ -2410,22 +2417,29 @@ class DownloadController extends GetxController {
                 Expanded(child: Text('Download File')),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Do you want to download this file?', 
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Text('File: $fileName'),
-                  const SizedBox(height: 8),
-                  Text('From: ${Uri.parse(url).host}', 
-                    style: const TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  Text('Save to: $_downloadPath', 
-                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
+            content: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: Get.width * 0.8),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Do you want to download this file?', 
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Text('File: $fileName', maxLines: 2, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 8),
+                    Text('From: ${Uri.parse(url).host}', 
+                      style: const TextStyle(color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 8),
+                    Text('Save to: $_downloadPath', 
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
             ),
             actions: [

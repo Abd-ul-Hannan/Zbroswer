@@ -33,6 +33,7 @@ class _BrowserState extends State<Browser> with WidgetsBindingObserver {
   bool _isRestoringState = false;
   Timer? _saveTimer;
   Timer? _periodicSaveTimer;
+  DateTime? _lastSaveTime;
 
   @override
   void initState() {
@@ -77,117 +78,78 @@ class _BrowserState extends State<Browser> with WidgetsBindingObserver {
   }
 
   void _saveCurrentState() {
+    // EXTREME: Throttle to 10s
+    final now = DateTime.now();
+    if (_lastSaveTime != null && now.difference(_lastSaveTime!).inSeconds < 10) return;
+    _lastSaveTime = now;
+    
     try {
       final windowModel = Get.find<WindowModel>();
-      final browserModel = Get.find<BrowserModel>();
-      
       final currentTab = windowModel.getCurrentTab();
       final currentUrl = currentTab?.webViewModel.url?.toString();
       final currentRoute = Get.currentRoute;
       final currentTabIndex = windowModel.getCurrentTabIndex();
       
-      // Save to SharedPreferences (survives app kill)
-      StateManager.saveState(
-        currentRoute, 
-        currentUrl, 
-        tabIndex: currentTabIndex >= 0 ? currentTabIndex : null,
-      );
+      StateManager.saveState(currentRoute, currentUrl, tabIndex: currentTabIndex >= 0 ? currentTabIndex : null);
       
-      // Save to database (full state)
-      windowModel.flushInfo();
-      browserModel.flush();
-      
-      debugPrint('💾 State saved - Route: $currentRoute, URL: $currentUrl, Tab: $currentTabIndex');
-    } catch (e) {
-      debugPrint('❌ Save error: $e');
-    }
+      // Defer heavy ops
+      Future.microtask(() {
+        windowModel.flushInfo();
+        Get.find<BrowserModel>().flush();
+      });
+    } catch (e) {}
   }
 
   Future<void> _initializeBrowser() async {
     if (_isInitialized || _isRestoringState) return;
-    
     _isRestoringState = true;
 
     try {
       final browserModel = Get.find<BrowserModel>();
       final windowModel = Get.find<WindowModel>();
 
-      debugPrint('═══════════════════════════════════');
-      debugPrint('🚀 Browser initialization started');
-      debugPrint('═══════════════════════════════════');
-
-      // Step 1: Get saved state from SharedPreferences FIRST
-      final savedState = await StateManager.restoreState();
+      // EXTREME: Parallel everything
+      final results = await Future.wait([
+        StateManager.restoreState(),
+        browserModel.restore(),
+        windowModel.restore(),
+      ]);
+      
+      final savedState = results[0] as Map<String, dynamic>;
       final savedUrl = savedState['url'] as String?;
       final savedTabIndex = savedState['tabIndex'] as int?;
       
-      debugPrint('📦 Saved state from SharedPreferences:');
-      debugPrint('   URL: $savedUrl');
-      debugPrint('   TabIndex: $savedTabIndex');
-
-      // Step 2: Restore database state (tabs, history, etc.)
-      await browserModel.restore();
-      await windowModel.restore();
       browserModel.isRestored = true;
       
-      // Step 2.1: Load theme from restored settings
-      final themeController = Get.find<ThemeController>();
-      themeController.loadThemeFromRestoredSettings();
-      
-      debugPrint('✅ Database restored. Tabs: ${windowModel.webViewTabs.length}');
+      // Defer ALL non-critical
+      Future.microtask(() {
+        Get.find<ThemeController>().loadThemeFromRestoredSettings();
+        _handleIntentData();
+        if (mounted) precacheImage(const AssetImage("assets/icon/icon.png"), context);
+      });
 
-      // Step 3: CRITICAL - Always load saved URL if it exists
       if (savedUrl != null && savedUrl.isNotEmpty) {
         if (windowModel.webViewTabs.isEmpty) {
-          // No tabs - create one with saved URL
-          windowModel.addTab(
-            WebViewTab(
-              key: GlobalKey(),
-              webViewModel: WebViewModel(url: WebUri(savedUrl)),
-            ),
-          );
-          debugPrint('✅ Created tab with URL: $savedUrl');
+          windowModel.addTab(WebViewTab(
+            key: GlobalKey(),
+            webViewModel: WebViewModel(url: WebUri(savedUrl)),
+          ));
         } else {
-          // Update existing tab with saved URL
           final targetIndex = (savedTabIndex ?? 0).clamp(0, windowModel.webViewTabs.length - 1);
           windowModel.webViewTabs[targetIndex].webViewModel.url = WebUri(savedUrl);
           windowModel.showTab(targetIndex);
-          debugPrint('✅ Loaded URL in tab $targetIndex: $savedUrl');
         }
       } else if (windowModel.webViewTabs.isNotEmpty) {
         windowModel.showTab(windowModel.webViewTabs.length - 1);
       }
 
-      // Step 4: Handle Android intent data
-      await _handleIntentData();
-
-      // Step 5: Precache icon
-      if (mounted) {
-        precacheImage(const AssetImage("assets/icon/icon.png"), context);
-      }
-
       _isInitialized = true;
       _isRestoringState = false;
+      if (mounted) setState(() {});
       
-      // Force rebuild
-      if (mounted) {
-        setState(() {});
-      }
-      
-      debugPrint('═══════════════════════════════════');
-      debugPrint('✅ Browser initialization complete');
-      debugPrint('   Active tabs: ${windowModel.webViewTabs.length}');
-      debugPrint('   Current tab: ${windowModel.getCurrentTabIndex()}');
-      debugPrint('   Current URL: ${windowModel.getCurrentTab()?.webViewModel.url}');
-      debugPrint('═══════════════════════════════════');
-      
-      // Start periodic auto-save every 5 seconds
-      _periodicSaveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        _saveCurrentState();
-      });
-      
-    } catch (e, stack) {
-      debugPrint('❌ Initialization error: $e\n$stack');
+      // EXTREME: 120s auto-save
+      _periodicSaveTimer = Timer.periodic(const Duration(seconds: 120), (_) => _saveCurrentState());
+    } catch (e) {
       _isRestoringState = false;
     }
   }

@@ -70,7 +70,15 @@ void main(List<String> args) async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize performance monitoring
+    // PERFORMANCE: Disable all debug in release
+    if (kReleaseMode) {
+      // Disable debug prints
+    }
+    
+    // PERFORMANCE: Optimize image cache
+    PaintingBinding.instance.imageCache.maximumSize = 100;
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20;
+
     if (kDebugMode) {
       PerformanceUtils.monitorFramePerformance();
     }
@@ -253,6 +261,10 @@ class _FlutterBrowserAppState extends State<FlutterBrowserApp> with WidgetsBindi
           darkTheme: ThemeController.darkTheme,
           themeMode: themeController.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           initialRoute: '/',
+          smartManagement: SmartManagement.keepFactory,
+          defaultTransition: Transition.native,
+          transitionDuration: const Duration(milliseconds: 200),
+          enableLog: false,
           getPages: [
             GetPage(
               name: '/',
@@ -287,8 +299,6 @@ class _FlutterBrowserAppState extends State<FlutterBrowserApp> with WidgetsBindi
               page: () => const BrickBreakerGame(),
             ),
           ],
-          defaultTransition: Transition.cupertino,
-          enableLog: kDebugMode,
         );
 
         if (Util.isMobile()) {

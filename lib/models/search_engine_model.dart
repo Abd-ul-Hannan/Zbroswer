@@ -22,23 +22,17 @@ class SearchEngineModel {
         : null;
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      "name": name,
-      "assetIcon": assetIcon,
-      "url": url,
-      "searchUrl": searchUrl,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+    "name": name,
+    "assetIcon": assetIcon,
+    "url": url,
+    "searchUrl": searchUrl,
+  };
 
-  Map<String, dynamic> toJson() {
-    return toMap();
-  }
+  Map<String, dynamic> toJson() => toMap();
 
   @override
-  String toString() {
-    return toMap().toString();
-  }
+  String toString() => toMap().toString();
 }
 
 // ignore: constant_identifier_names

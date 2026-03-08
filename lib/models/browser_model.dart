@@ -264,42 +264,26 @@ class BrowserModel extends GetxController {
 
   Future<void> save() async {
     _timerSave?.cancel();
-
-    if (DateTime.now().difference(_lastTrySave) >=
-        const Duration(milliseconds: 400)) {
+    // EXTREME: 2s debounce
+    if (DateTime.now().difference(_lastTrySave) >= const Duration(seconds: 2)) {
       _lastTrySave = DateTime.now();
       await flush();
     } else {
       _lastTrySave = DateTime.now();
-      _timerSave = Timer(const Duration(milliseconds: 500), () {
-        save();
-      });
+      _timerSave = Timer(const Duration(seconds: 2), save);
     }
   }
 
   Future<void> flush() async {
     try {
-      final browser = await db?.rawQuery('SELECT * FROM browser WHERE id = ?', [1]);
-      
-      int? count;
-      if (browser == null || browser.isEmpty) {
-        count = await db?.rawInsert(
-          'INSERT INTO browser(id, json) VALUES(?, ?)',
-          [1, json.encode(toJson())],
-        );
+      final data = json.encode(toJson());
+      final exists = await db?.rawQuery('SELECT 1 FROM browser WHERE id = 1 LIMIT 1');
+      if (exists == null || exists.isEmpty) {
+        await db?.rawInsert('INSERT INTO browser(id, json) VALUES(1, ?)', [data]);
       } else {
-        count = await db?.rawUpdate(
-          'UPDATE browser SET json = ? WHERE id = ?',
-          [json.encode(toJson()), 1],
-        );
+        await db?.rawUpdate('UPDATE browser SET json = ? WHERE id = 1', [data]);
       }
-
-      if ((count == null || count == 0) && kDebugMode) {
-        debugPrint("Cannot insert/update browser data");
-      }
-    } catch (e) {
-      debugPrint('Error flushing browser data: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> restore() async {

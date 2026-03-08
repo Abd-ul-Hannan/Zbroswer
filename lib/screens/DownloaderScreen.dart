@@ -1187,13 +1187,15 @@ class DownloadManagerScreen extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (nameController.text.trim().isNotEmpty) {
+                final newName = nameController.text.trim();
+                if (newName.isNotEmpty) {
                   if (Get.isDialogOpen == true) {
-                    nameController.dispose();
                     Get.back();
                   }
-                  await Future.delayed(const Duration(milliseconds: 100));
-                  controller.renameFile(item.taskId, nameController.text.trim());
+                  nameController.dispose();
+                  
+                  await Future.delayed(const Duration(milliseconds: 200));
+                  controller.renameFile(item.taskId, newName);
                 }
               },
               child: const Text('Rename'),

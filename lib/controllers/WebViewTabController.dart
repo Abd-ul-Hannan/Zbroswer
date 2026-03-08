@@ -197,6 +197,13 @@ class WebViewTabController extends GetxController with WidgetsBindingObserver {
     initialSettings.isFraudulentWebsiteWarningEnabled = true;
     initialSettings.disableLongPressContextMenuOnLinks = true;
     initialSettings.allowingReadAccessTo = WebUri('file://$WEB_ARCHIVE_DIR/');
+    
+    // PERFORMANCE: Enable caching
+    initialSettings.cacheEnabled = true;
+    initialSettings.cacheMode = CacheMode.LOAD_CACHE_ELSE_NETWORK;
+    initialSettings.databaseEnabled = false;
+    initialSettings.domStorageEnabled = true;
+    initialSettings.mediaPlaybackRequiresUserGesture = false;
 
     if (Util.isIOS() || Util.isAndroid()) {
       initialSettings.userAgent =
@@ -250,11 +257,7 @@ class WebViewTabController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _onLoadStop(InAppWebViewController controller, WebUri? url) async {
-  debugPrint('Load completed for URL: $url');
-  
-  if (!_pullToRefreshControllerDisposed.value) {
-    _pullToRefreshController?.endRefreshing();
-  }
+  if (!_pullToRefreshControllerDisposed.value) _pullToRefreshController?.endRefreshing();
 
   webViewModel.url = url;
   webViewModel.loaded = true;
@@ -267,31 +270,21 @@ class WebViewTabController extends GetxController with WidgetsBindingObserver {
   webViewModel.title = await controller.getTitle();
 
   if (url != null) {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 300));
     await _updateFavicon(controller);
   }
 
   if (_isCurrentTab()) {
     webViewModel.needsToCompleteInitialLoad = false;
     windowModel.update();
-    await _takeScreenshot(controller);
     
-    // CRITICAL: Save state immediately when page loads
-    try {
-      final currentRoute = Get.currentRoute;
-      final currentUrl = url?.toString();
-      final tabIndex = webViewModel.tabIndex;
-      StateManager.saveState(currentRoute, currentUrl, tabIndex: tabIndex);
-      debugPrint('💾 Saved state on page load - URL: $currentUrl');
-    } catch (e) {
-      debugPrint('Error saving state on load stop: $e');
-    }
+    // EXTREME: Defer screenshot & save
+    Future.microtask(() {
+      _takeScreenshot(controller);
+      StateManager.saveState(Get.currentRoute, url?.toString(), tabIndex: webViewModel.tabIndex);
+      windowModel.flushInfo();
+    });
   }
-  
-  // Force immediate save and flush
-  await windowModel.flushInfo();
-  
-  debugPrint('✅ Page load completed and state saved for: $url');
 }
 
 
@@ -382,31 +375,17 @@ class WebViewTabController extends GetxController with WidgetsBindingObserver {
   WebUri? url,
   bool? androidIsReload,
 ) async {
-  debugPrint('URL updated via history: $url');
-  
   webViewModel.url = url;
   webViewModel.title = await controller.getTitle();
-  
-  // Update favicon when history is updated
   await _updateFavicon(controller);
 
   if (_isCurrentTab()) {
     windowModel.update();
-    
-    // CRITICAL: Save state on navigation
-    try {
-      final currentRoute = Get.currentRoute;
-      final currentUrl = url?.toString();
-      final tabIndex = webViewModel.tabIndex;
-      StateManager.saveState(currentRoute, currentUrl, tabIndex: tabIndex);
-      debugPrint('💾 Saved state on history update - URL: $currentUrl');
-    } catch (e) {
-      debugPrint('Error saving state on history update: $e');
-    }
+    Future.microtask(() {
+      StateManager.saveState(Get.currentRoute, url?.toString(), tabIndex: webViewModel.tabIndex);
+      windowModel.flushInfo();
+    });
   }
-  
-  // Force immediate flush to persist navigation
-  await windowModel.flushInfo();
 }
 
   Future<void> _onLongPressHitTestResult(
