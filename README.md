@@ -19,9 +19,21 @@ ZBrowser is a complete web browser experience built from the ground up in Flutte
 > **Tip:** To add multiple screenshots side by side, use this format:
 > ```markdown
 > <p align="center">
->   <img src="assets/screenshots/screen1.png" width="200"/>
->   <img src="assets/screenshots/screen2.png" width="200"/>
->   <img src="assets/screenshots/screen3.png" width="200"/>
+>   <img src="assets/AppScreenShots/home.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/darkmodehome.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/download.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/aboutwebsite.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/history.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/tab.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/incro.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/menuoption.jpg" width="200"/>
+>   <img src="assets/AppScreenShots/recent suggestion.jpg" width="200"/>
+
+
+
+
+
+
 > </p>
 > ```
 
