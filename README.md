@@ -10,6 +10,23 @@ ZBrowser is a complete web browser experience built from the ground up in Flutte
 
 ---
 
+## 📸 Screenshots
+
+> Add your app screenshots inside the `assets/screenshots/` folder and they will appear here.
+
+
+
+> **Tip:** To add multiple screenshots side by side, use this format:
+> ```markdown
+> <p align="center">
+>   <img src="assets/screenshots/screen1.png" width="200"/>
+>   <img src="assets/screenshots/screen2.png" width="200"/>
+>   <img src="assets/screenshots/screen3.png" width="200"/>
+> </p>
+> ```
+
+---
+
 ## ✨ Features
 
 ### 🔍 Full Web Browsing
